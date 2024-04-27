@@ -48,6 +48,14 @@ GAN-based: T.B.A (Leo think cyclegan or pix2pix would be perfect, you guys can i
 VAE-based: StyTr2 (two ViT encoder)
     https://github.com/diyiiyiii/StyTR-2
 
+    - Original paper used a voting scheme and training loss to evaluate, 
+    Leo: I think it can be improve by using FID or IS for evaluation for better comparision
+    #TODO: train StyTR-2 on Monet training set, and eval the test set using FID
+
+    Hi Prof. Lian, let me know which metric is the GAN-based method you are planning to use.
+    I rememer that cyclegan is using FID, but they did not provide code for it :( 
+        check out the repo I found below at metric session
+
 
 Metrics:
 FID (Main metric)
