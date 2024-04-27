@@ -1,7 +1,10 @@
 CycleGAN Datasets: https://www.kaggle.com/datasets/suyashdamle/cyclegan
-    Leo: We can use Monet2photo dataset :) because I like monet
+
+
+Leo: We can use Monet2photo dataset :) because I like monet
     Datasets over view:
-            monet2photo
+    
+    monet2photo
     ├── monet2photo
     │   ├── train_A (1072 files - style img)
     │   │   ├── 000000.png
