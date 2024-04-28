@@ -2,8 +2,9 @@ CycleGAN Datasets: https://www.kaggle.com/datasets/suyashdamle/cyclegan
 
 
 Leo: We can use Monet2photo dataset :) because I like monet
+
     Datasets over view:
-    
+
     monet2photo
     ├── monet2photo
     │   ├── train_A (1072 files - style img)
@@ -75,7 +76,12 @@ VAE-based: StyTr2 (two ViT encoder)
 
 Metrics:
 FID (Main metric)
-    https://github.com/hukkelas/pytorch-frechet-inception-distance
+    https://github.com/bioinf-jku/TTUR
+    Note: 
+    To compute InceptionV3 activations: 
+    images in a file should be the same size 
+    reshape images to (299,299). This is done in the official FID implementation
+    normalize image similarly to [-1, 1]
 
 IS (Inception Score)
 
