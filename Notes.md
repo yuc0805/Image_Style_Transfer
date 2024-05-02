@@ -71,14 +71,20 @@ VAE-based: StyTr2 (two ViT encoder)
     #TODO: Comapre FID with COCO2014-based model and FID with training on Monent datasets
         - I guess the pretrain-modeled will perform better since it has more data.
 
+    ```
     05/02/2024
     Pretrained StyTr2 with Monenet datasets, with trimming content training set with 2000 imgs
     - 4800 iteration with batchsize 4
 
     Inference: sample 5 style for each content image (resulting around 5000k imgs)
-    - content FID: 
-    - style FID: 
+    - Reference FID: FiD(testA,testB) = 177.176
+    - content FID: 49.336 
+    - style FID: 147.772
+    - Avg FiD: 98.554       
 
+    Remark: By comparing the reference Fid, and thestyle FiD, clearly that 4800 iteration is not sufficient to learn style feature. 
+    But due to compute restriction, we will stick to this as a baseline for now. 
+    ```
 
 
 
@@ -94,7 +100,7 @@ FID (Main metric)
 IS (Inception Score)
 
 
-Limitation:
+Limitations:
 Due the compute constraint, we are not able to explore the generalization ability of our models,
 we are only going to use a small dataset in sake of a proof of concept.
 (e.g. not able to do pretraining)
@@ -102,5 +108,6 @@ we are only going to use a small dataset in sake of a proof of concept.
 We will majorly focuse on the Monet datasets, 
     maybe we can explore how the weight train on monet dataset perform in ood datasets like horse to zebra.
     We can also try another similar task (img to vangar)
+
 
 
