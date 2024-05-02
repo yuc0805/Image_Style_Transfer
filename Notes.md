@@ -71,6 +71,14 @@ VAE-based: StyTr2 (two ViT encoder)
     #TODO: Comapre FID with COCO2014-based model and FID with training on Monent datasets
         - I guess the pretrain-modeled will perform better since it has more data.
 
+    05/02/2024
+    Pretrained StyTr2 with Monenet datasets, with trimming content training set with 2000 imgs
+    - 4800 iteration with batchsize 4
+
+    Inference: sample 5 style for each content image (resulting around 5000k imgs)
+    - content FID: 
+    - style FID: 
+
 
 
 
