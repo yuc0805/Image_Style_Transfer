@@ -1,0 +1,7 @@
+# log in
+ssh yuc204@dsmlp-login.ucsd.edu
+pasword: 12680175Cyl*-
+
+# request resource
+launch-scipy-ml.sh -c 8 -m 32 -g 1  #8cpu,32ram,1gpu
+
