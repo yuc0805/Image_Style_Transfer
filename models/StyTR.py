@@ -194,7 +194,7 @@ class StyTrans(nn.Module):
         content_feats = self.encode_with_intermediate(samples_c.tensors)
         style_feats = self.encode_with_intermediate(samples_s.tensors)
 
-        ### Linear projection
+        ### Patch Embedding
         style = self.embedding(samples_s.tensors)
         content = self.embedding(samples_c.tensors)
         
