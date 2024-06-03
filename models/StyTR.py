@@ -134,7 +134,6 @@ class MLP(nn.Module):
         for i, layer in enumerate(self.layers):
             x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
         return x
-    
 class StyTrans(nn.Module):
     """ This is the style transform transformer module """
     
@@ -178,7 +177,7 @@ class StyTrans(nn.Module):
         return self.mse_loss(input_mean, target_mean) + \
                self.mse_loss(input_std, target_std)
     def forward(self, samples_c: NestedTensor,samples_s: NestedTensor):
-        """ The forward expects a NestedTensor, which consists of:
+        """ The forward expects a NestedTensor, which consists of:
                - samples.tensor: batched images, of shape [batch_size x 3 x H x W]
                - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels
 
@@ -227,5 +226,5 @@ class StyTrans(nn.Module):
         for i in range(1, 5):
             loss_lambda2 += self.calc_content_loss(Icc_feats[i], content_feats[i])+self.calc_content_loss(Iss_feats[i], style_feats[i])
         # Please select and comment out one of the following two sentences
-        #return Ics,  loss_c, loss_s, loss_lambda1, loss_lambda2   #train
-        return Ics    #test 
+        return Ics,  loss_c, loss_s, loss_lambda1, loss_lambda2   #train
+        #return Ics    #test 

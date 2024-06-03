@@ -112,7 +112,7 @@ with torch.no_grad():
 network.train()
 
 network.to(device)
-network = nn.DataParallel(network, device_ids=[0,1])
+#network = nn.DataParallel(network, device_ids=[0,1])
 content_tf = train_transform()
 style_tf = train_transform()
 
@@ -215,4 +215,4 @@ for i in tqdm(range(args.max_iter)):
                                                     
 #writer.close()
 
-# python train.py --style_dir monet2photo/trainA --content_dir monet2photo/trainB_trimed --save_dir models/ --batch_size 8 --max_iter 1600
+#python train.py --style_dir dataset/monet2photo/monet2photo/testA/ --content_dir dataset/monet2photo/monet2photo/testB/ --save_dir models/ --batch_size 2 --n_threads 0
