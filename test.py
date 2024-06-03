@@ -29,6 +29,7 @@ def test_transform(size, crop):
     transform_list.append(transforms.ToTensor())
     transform = transforms.Compose(transform_list)
     return transform
+
 def style_transform(h,w):
     k = (h,w)
     size = int(np.max(k))
