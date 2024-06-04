@@ -379,7 +379,7 @@ class CrossStyTr(nn.Module):
         
         # position embedding
         content_pool = self.averagepooling(content_img)
-        print('conten_pool shape: ',content_pool.shape)       
+        #print('conten_pool shape: ',content_pool.shape)       
         pos_c = self.new_ps(content_pool)
         pos_embed_c = F.interpolate(pos_c, mode='bilinear',size= style_img.shape[-2:])
 
@@ -387,7 +387,7 @@ class CrossStyTr(nn.Module):
         style_img = style_img.flatten(2).permute(2, 0, 1)
         content_img = content_img.flatten(2).permute(2, 0, 1) # 512 x N x 768
 
-        print('shape of content_img patches',content_img.shape)    
+        #print('shape of content_img patches',content_img.shape)    
         if pos_embed_c is not None:
             pos_embed_c = pos_embed_c.flatten(2).permute(2, 0, 1) # 512 x N x 768
         content_img = content_img + pos_embed_c
@@ -409,9 +409,9 @@ class CrossStyTr(nn.Module):
         style_img1 = self.unpatch(style_img1)
 
 
-        print('style_img output shape:',style_img.shape)
+        #print('style_img output shape:',style_img.shape)
         Ics = self.decoder(style_img) # result image
-        print('ICS shape: ', Ics.shape)
+        #print('ICS shape: ', Ics.shape)
 
         ######Calculating loss#######################################################
         # stage 1: Perceptual loss##################################################
