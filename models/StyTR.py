@@ -6,8 +6,8 @@ from util import box_ops
 from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
                        accuracy, get_world_size, interpolate,
                        is_dist_avail_and_initialized)
-from function import normal,normal_style
-from function import calc_mean_std
+from CrossStyTr.function import normal,normal_style
+from CrossStyTr.function import calc_mean_std
 import scipy.stats as stats
 from models.ViT_helper import DropPath, to_2tuple, trunc_normal_
 
@@ -204,7 +204,10 @@ class StyTrans(nn.Module):
 
         mask = None
         hs = self.transformer(style, mask , content, pos_c, pos_s)   
+        print('shape of hs',hs.shape)
         Ics = self.decode(hs)
+
+        print('shape of Ics',Ics.shape)
 
         Ics_feats = self.encode_with_intermediate(Ics)
         loss_c = self.calc_content_loss(normal(Ics_feats[-1]), normal(content_feats[-1]))+self.calc_content_loss(normal(Ics_feats[-2]), normal(content_feats[-2]))

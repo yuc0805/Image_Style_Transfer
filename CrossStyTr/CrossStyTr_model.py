@@ -25,31 +25,64 @@ and use the style sequence to generate the key K and the value V
 
 '''
 
+# decoder = nn.Sequential(
+#     nn.Conv2d(512, 256, (3, 3)), 
+#     nn.ReLU(),
+#     nn.Upsample(scale_factor=2, mode='nearest'),
+#     nn.ReflectionPad2d((1, 1, 1, 1)),
+#     nn.Conv2d(256, 256, (3, 3)),
+#     nn.ReLU(),
+#     nn.ReflectionPad2d((1, 1, 1, 1)),
+#     nn.Conv2d(256, 256, (3, 3)),
+#     nn.ReLU(),
+#     nn.ReflectionPad2d((1, 1, 1, 1)),
+#     nn.Conv2d(256, 256, (3, 3)),
+#     nn.ReLU(),
+#     nn.ReflectionPad2d((1, 1, 1, 1)),
+#     nn.Conv2d(256, 128, (3, 3)),
+#     nn.ReLU(),
+#     nn.Upsample(scale_factor=2, mode='nearest'),
+#     nn.ReflectionPad2d((1, 1, 1, 1)),
+#     nn.Conv2d(128, 128, (3, 3)),
+#     nn.ReLU(),
+#     nn.ReflectionPad2d((1, 1, 1, 1)),
+#     nn.Conv2d(128, 64, (3, 3)),
+#     nn.ReLU(),
+#     nn.Upsample(scale_factor=2, mode='nearest'),
+#     nn.ReflectionPad2d((1, 1, 1, 1)),
+#     nn.Conv2d(64, 64, (3, 3)),
+#     nn.ReLU(),
+#     nn.ReflectionPad2d((1, 1, 1, 1)),
+#     nn.Conv2d(64, 3, (3, 3)),
+# )
+
 decoder = nn.Sequential(
-    nn.ReflectionPad2d((1, 1, 1, 1)),
-    nn.Conv2d(512, 256, (3, 3)),
+    nn.Conv2d(768, 256, (3, 3), padding=1),
     nn.ReLU(),
-    nn.Upsample(scale_factor=2, mode='nearest'),
+    nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32
+    nn.Conv2d(256, 256, (3, 3), padding=1),
+    nn.ReLU(),
+    nn.ReflectionPad2d((1, 1, 1, 1)),
+    nn.Conv2d(256, 256, (3, 3)),
+    nn.ReLU(),
+    nn.Upsample(scale_factor=2, mode='nearest'),  # 32x32 -> 64x64
     nn.ReflectionPad2d((1, 1, 1, 1)),
     nn.Conv2d(256, 256, (3, 3)),
     nn.ReLU(),
     nn.ReflectionPad2d((1, 1, 1, 1)),
     nn.Conv2d(256, 256, (3, 3)),
     nn.ReLU(),
-    nn.ReflectionPad2d((1, 1, 1, 1)),
-    nn.Conv2d(256, 256, (3, 3)),
-    nn.ReLU(),
+    nn.Upsample(scale_factor=2, mode='nearest'),  # 64x64 -> 128x128
     nn.ReflectionPad2d((1, 1, 1, 1)),
     nn.Conv2d(256, 128, (3, 3)),
     nn.ReLU(),
-    nn.Upsample(scale_factor=2, mode='nearest'),
+    nn.Upsample(scale_factor=2, mode='nearest'),  # 128x128 -> 256x256
     nn.ReflectionPad2d((1, 1, 1, 1)),
     nn.Conv2d(128, 128, (3, 3)),
     nn.ReLU(),
     nn.ReflectionPad2d((1, 1, 1, 1)),
     nn.Conv2d(128, 64, (3, 3)),
     nn.ReLU(),
-    nn.Upsample(scale_factor=2, mode='nearest'),
     nn.ReflectionPad2d((1, 1, 1, 1)),
     nn.Conv2d(64, 64, (3, 3)),
     nn.ReLU(),
@@ -57,7 +90,7 @@ decoder = nn.Sequential(
     nn.Conv2d(64, 3, (3, 3)),
 )
 
-encoder = nn.Sequential(
+vgg = nn.Sequential(
     nn.Conv2d(3, 3, (1, 1)),
     nn.ReflectionPad2d((1, 1, 1, 1)),
     nn.Conv2d(3, 64, (3, 3)),
@@ -160,6 +193,8 @@ class CrossAttention(nn.Module):
         self.wv = nn.Linear(dim, dim, bias=qkv_bias)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
+        
+        self.embed_size = dim
 
     def forward(self,q,kv): 
         N = kv.shape[0] # Number of samples
@@ -269,8 +304,10 @@ class CrossStyTr(nn.Module):
         self.vit.fc = None
         freeze_model(self.vit)
 
-        self.new_ps = nn.Conv2d(img_size , img_size , (1,1))
+        self.new_ps = nn.Conv2d(style_embed , style_embed , (1,1))
         self.averagepooling = nn.AdaptiveAvgPool2d(9) # change 18 to 9
+
+        
 
         self.fusion = nn.ModuleList([
             FusionBlock(styl_embed=style_embed,
@@ -306,11 +343,20 @@ class CrossStyTr(nn.Module):
         target_mean, target_std = calc_mean_std(target)
         return self.mse_loss(input_mean, target_mean) + \
                self.mse_loss(input_std, target_std)
+    
+    def unpatch(self,hs):
+        ### HWxNxC to NxCxHxW to
+        N, B, C= hs.shape          
+        H = int(np.sqrt(N))
+        hs = hs.permute(1, 2, 0)
+        hs = hs.view(B, C, -1,H)
+
+        return hs
        
 
     def forward(self,content_img,style_img,mask=None):
         '''
-        @param img: (N, 3, 256, 256)
+        @param img: (N, 3, 512, 512)
         @od        
         '''
         if content_img.shape != style_img.shape:
@@ -320,8 +366,8 @@ class CrossStyTr(nn.Module):
 
         N,_,H,W = content_img.shape
         ### Feature for calculating loss
-        content_vgg = self.encode_with_intermediate(content_img.tensors)
-        style_vgg = self.encode_with_intermediate(style_img.tensors)
+        content_vgg = self.encode_with_intermediate(content_img)
+        style_vgg = self.encode_with_intermediate(style_img)
 
         content_input = content_img.clone()
         style_input = style_img.clone()
@@ -332,17 +378,18 @@ class CrossStyTr(nn.Module):
         style_img = self.vit.patch_embedding(style_img)
         
         # position embedding
-        content_pool = self.averagepooling(content_img)       
+        content_pool = self.averagepooling(content_img)
+        print('conten_pool shape: ',content_pool.shape)       
         pos_c = self.new_ps(content_pool)
         pos_embed_c = F.interpolate(pos_c, mode='bilinear',size= style_img.shape[-2:])
 
         ###flatten NxCxHxW to HWxNxC     
         style_img = style_img.flatten(2).permute(2, 0, 1)
-        content_img = content_img.flatten(2).permute(2, 0, 1)
+        content_img = content_img.flatten(2).permute(2, 0, 1) # 512 x N x 768
 
+        print('shape of content_img patches',content_img.shape)    
         if pos_embed_c is not None:
-            pos_embed_c = pos_embed_c.flatten(2).permute(2, 0, 1)
-            print('shape of pos_embed_c',pos_embed_c.shape)
+            pos_embed_c = pos_embed_c.flatten(2).permute(2, 0, 1) # 512 x N x 768
         content_img = content_img + pos_embed_c
 
         # clone for identity loss
@@ -357,7 +404,14 @@ class CrossStyTr(nn.Module):
             content_img1,content_img2 = blk(style_feats=content_img1,content_feats=content_img2) # for loss
             style_img1, style_img2 = blk(style_feats=style_img1,content_feats=style_img2) # for loss
 
+        style_img = self.unpatch(style_img)
+        content_img1 = self.unpatch(content_img1)
+        style_img1 = self.unpatch(style_img1)
+
+
+        print('style_img output shape:',style_img.shape)
         Ics = self.decoder(style_img) # result image
+        print('ICS shape: ', Ics.shape)
 
         ######Calculating loss#######################################################
         # stage 1: Perceptual loss##################################################

@@ -4,7 +4,7 @@ from typing import Optional, List
 import torch
 import torch.nn.functional as F
 from torch import nn, Tensor
-from function import normal,normal_style
+from CrossStyTr.function import normal,normal_style
 import numpy as np
 import os
 device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
@@ -45,7 +45,8 @@ class Transformer(nn.Module):
     def forward(self, style, mask , content, pos_embed_c, pos_embed_s):
 
         # content-aware positional embedding
-        content_pool = self.averagepooling(content)       
+        content_pool = self.averagepooling(content)   
+        print('content_pool shape',content_pool.shape)    
         pos_c = self.new_ps(content_pool)
         pos_embed_c = F.interpolate(pos_c, mode='bilinear',size= style.shape[-2:])
 

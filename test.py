@@ -8,12 +8,12 @@ from os.path import basename
 from os.path import splitext
 from torchvision import transforms
 from torchvision.utils import save_image
-from function import calc_mean_std, normal, coral
+from CrossStyTr.function import calc_mean_std, normal, coral
 import models.transformer as transformer
 import models.StyTR as StyTR
 import matplotlib.pyplot as plt
 from matplotlib import cm
-from function import normal
+from CrossStyTr.function import normal
 import numpy as np
 import time
 import random

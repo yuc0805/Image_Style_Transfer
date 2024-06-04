@@ -9,7 +9,7 @@ from PIL import ImageFile
 from torchvision import transforms
 from tqdm import tqdm
 from pathlib import Path
-import models.transformer as transformer
+#import models.transformer as transformer
 #import models.StyTR  as StyTR 
 import CrossStyTr_model
 from sampler import InfiniteSamplerWrapper
@@ -65,9 +65,9 @@ def warmup_learning_rate(optimizer, iteration_count):
 
 parser = argparse.ArgumentParser()
 # Basic options
-parser.add_argument('--content_dir', default='./datasets/train2014', type=str,   
+parser.add_argument('--content_dir', default='monet2photo/testB', type=str,   
                     help='Directory path to a batch of content images')
-parser.add_argument('--style_dir', default='./datasets/Images', type=str,  #wikiart dataset crawled from https://www.wikiart.org/
+parser.add_argument('--style_dir', default='monet2photo/testA', type=str,  #wikiart dataset crawled from https://www.wikiart.org/
                     help='Directory path to a batch of style images')
 parser.add_argument('--vgg', type=str, default='./experiments/vgg_normalised.pth')  #run the train.py, please download the pretrained vgg checkpoint
 
@@ -84,6 +84,7 @@ parser.add_argument('--style_weight', type=float, default=10.0)
 parser.add_argument('--content_weight', type=float, default=7.0)
 parser.add_argument('--n_threads', type=int, default=12)
 parser.add_argument('--save_model_interval', type=int, default=2000)
+parser.add_argument('--remark', type=str, default='reamark')
 
 args = parser.parse_args()
 
@@ -104,7 +105,7 @@ vgg = nn.Sequential(*list(vgg.children())[:44])
 decoder = CrossStyTr_model.decoder
 
 with torch.no_grad():
-    network = CrossStyTr_model.CrossStyTr(args,encode = vgg,decoder=decoder,device=device)
+    network = CrossStyTr_model.CrossStyTr(encoder=vgg, decoder=decoder, device=device)
 network.train()
 
 network.to(device)
@@ -132,14 +133,15 @@ style_iter = iter(data.DataLoader(
 #                               ], lr=args.lr)
 
 optimizer = torch.optim.Adam([ 
-                              {'params': network.transformer.parameters()},
-                              {'params': network.decode.parameters()},
-                              {'params': network.embedding.parameters()},        
+                              #{'params': network.transformer.parameters()},
+                              {'params': network.decoder.parameters()},
+                              #{'params': network.embedding.parameters()},        
                               ], lr=args.lr)
 
+save_dir = os.path.join(args.save_dir,args.remark)
 
-if not os.path.exists(args.save_dir+"/test"):
-    os.makedirs(args.save_dir+"/test")
+if not os.path.exists(save_dir+"/test"):
+    os.makedirs(save_dir+"/test")
 
 
 
@@ -153,11 +155,12 @@ for i in tqdm(range(args.max_iter)):
     # print('learning_rate: %s' % str(optimizer.param_groups[0]['lr']))
     content_images = next(content_iter).to(device)
     style_images = next(style_iter).to(device)  
+    #print('content images',content_images)
     out, loss_c, loss_s,l_identity1, l_identity2 = network(content_images, style_images)
 
     if i % 100 == 0:
         output_name = '{:s}/test/{:s}{:s}'.format(
-                        args.save_dir, str(i),".jpg"
+                        save_dir, str(i),".jpg"
                     )
         out = torch.cat((content_images,out),0)
         out = torch.cat((style_images,out),0)
@@ -188,7 +191,7 @@ for i in tqdm(range(args.max_iter)):
         for key in state_dict.keys():
             state_dict[key] = state_dict[key].to(torch.device('cpu'))
         torch.save(state_dict,
-                   '{:s}/transformer_iter_{:d}.pth'.format(args.save_dir,
+                   '{:s}/transformer_iter_{:d}.pth'.format(save_dir,
                                                            i + 1))
 
         #state_dict = network.module.decode.state_dict()
@@ -196,17 +199,17 @@ for i in tqdm(range(args.max_iter)):
         for key in state_dict.keys():
             state_dict[key] = state_dict[key].to(torch.device('cpu'))
         torch.save(state_dict,
-                   '{:s}/decoder_iter_{:d}.pth'.format(args.save_dir,
+                   '{:s}/decoder_iter_{:d}.pth'.format(save_dir,
                                                            i + 1))
         #state_dict = network.module.embedding.state_dict()
         state_dict = network.embedding.state_dict()
         for key in state_dict.keys():
             state_dict[key] = state_dict[key].to(torch.device('cpu'))
         torch.save(state_dict,
-                   '{:s}/embedding_iter_{:d}.pth'.format(args.save_dir,
+                   '{:s}/embedding_iter_{:d}.pth'.format(save_dir,
                                                            i + 1))
 
                                                     
 #writer.close()
 
-#python train.py --style_dir dataset/monet2photo/monet2photo/testA/ --content_dir dataset/monet2photo/monet2photo/testB/ --save_dir models/ --batch_size 2 --n_threads 0
+#python CrossStyTr/CrossStyTr_train.py --save_dir models/ --batch_size 2 --n_threads 0 --remark dummy_run
