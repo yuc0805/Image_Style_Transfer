@@ -204,6 +204,7 @@ class CrossAttention(nn.Module):
         values = self.wv(kv) ## (N, seq_len, embed_size)
         keys = self.wk(kv) ## (N, seq_len, embed_size)
         queries = self.wq(q) ## (N, seq_len, embed_size)
+        queries1 = queries.clone()
 
         values = values.view(N, seq_len, self.num_heads, self.head_dim).transpose(1,2) ## (N, heads, seq_len, head_dim)
         keys = keys.view(N, seq_len, self.num_heads, self.head_dim).transpose(1,2) ## (N, heads, seq_len, head_dim)
@@ -218,7 +219,7 @@ class CrossAttention(nn.Module):
         out = out.transpose(1, 2).contiguous().view(N, seq_len, self.embed_size) ## (N, seq_len, embed_size)
 
         out = self.proj(out)
-        out = self.proj_drop(out)
+        out = self.proj_drop(out) + queries1
 
         return out # batch_size, num_patches, 768
 
@@ -322,8 +323,8 @@ class CrossStyTr(nn.Module):
                         has_mlp = has_mlp,
                         curr_layer=curr_layer) for curr_layer in range(depth)])
         
-        self.content_cls = nn.Parameter(torch.zeros(1, 1, hidden_size,dtype=torch.float32))
-        self.style_cls = nn.Parameter(torch.zeros(1, 1, hidden_size,dtype=torch.float32))
+        # self.content_cls = nn.Parameter(torch.zeros(1, 1, hidden_size,dtype=torch.float32))
+        # self.style_cls = nn.Parameter(torch.zeros(1, 1, hidden_size,dtype=torch.float32))
 
         self.decoder = decoder
 
