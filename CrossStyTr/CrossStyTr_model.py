@@ -410,7 +410,7 @@ class CrossStyTr(nn.Module):
         style_img = self.unpatch(style_img)
         content_img1 = self.unpatch(content_img1)
         style_img1 = self.unpatch(style_img1)
-
+        content_img = self.unpatch(content_img)
 
         #print('style_img output shape:',style_img.shape)
         Ics = self.decoder(content_img) # result image
