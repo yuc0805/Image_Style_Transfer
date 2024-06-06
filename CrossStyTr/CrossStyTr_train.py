@@ -65,9 +65,9 @@ def warmup_learning_rate(optimizer, iteration_count):
 
 parser = argparse.ArgumentParser()
 # Basic options
-parser.add_argument('--content_dir', default='monet2photo/testB', type=str,   
+parser.add_argument('--content_dir', default='monet2photo/trainB', type=str,   
                     help='Directory path to a batch of content images')
-parser.add_argument('--style_dir', default='monet2photo/testA', type=str,  #wikiart dataset crawled from https://www.wikiart.org/
+parser.add_argument('--style_dir', default='monet2photo/trainA', type=str,  #wikiart dataset crawled from https://www.wikiart.org/
                     help='Directory path to a batch of style images')
 parser.add_argument('--vgg', type=str, default='./experiments/vgg_normalised.pth')  #run the train.py, please download the pretrained vgg checkpoint
 
@@ -132,11 +132,7 @@ style_iter = iter(data.DataLoader(
 #                               {'params': network.module.embedding.parameters()},        
 #                               ], lr=args.lr)
 
-optimizer = torch.optim.Adam([ 
-                              #{'params': network.transformer.parameters()},
-                              {'params': network.decoder.parameters()},
-                              #{'params': network.embedding.parameters()},        
-                              ], lr=args.lr)
+optimizer = torch.optim.Adam(network.parameters(), lr=args.lr)
 
 save_dir = os.path.join(args.save_dir,args.remark)
 
@@ -186,30 +182,20 @@ for i in tqdm(range(args.max_iter)):
     # writer.add_scalar('total_loss', loss.sum().item(), i + 1)
 
     if (i + 1) % args.save_model_interval == 0 or (i + 1) == args.max_iter:
-        #state_dict = network.module.transformer.state_dict()
-        state_dict = network.transformer.state_dict()
-        for key in state_dict.keys():
-            state_dict[key] = state_dict[key].to(torch.device('cpu'))
-        torch.save(state_dict,
-                   '{:s}/transformer_iter_{:d}.pth'.format(save_dir,
-                                                           i + 1))
 
-        #state_dict = network.module.decode.state_dict()
-        state_dict = network.decode.state_dict()
-        for key in state_dict.keys():
-            state_dict[key] = state_dict[key].to(torch.device('cpu'))
-        torch.save(state_dict,
-                   '{:s}/decoder_iter_{:d}.pth'.format(save_dir,
-                                                           i + 1))
-        #state_dict = network.module.embedding.state_dict()
-        state_dict = network.embedding.state_dict()
-        for key in state_dict.keys():
-            state_dict[key] = state_dict[key].to(torch.device('cpu'))
-        torch.save(state_dict,
-                   '{:s}/embedding_iter_{:d}.pth'.format(save_dir,
-                                                           i + 1))
+            checkpoint = {
+                'model_state_dict': network.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'iteration': i + 1
+            }
+            for key in checkpoint['model_state_dict'].keys():
+                checkpoint['model_state_dict'][key] = checkpoint['model_state_dict'][key].to(torch.device('cpu'))
+
+            # Save the checkpoint
+            torch.save(checkpoint, '{:s}/checkpoint_{:d}.pth'.format(args.save_dir, i + 1))
 
                                                     
 #writer.close()
 
 #python CrossStyTr/CrossStyTr_train.py --save_dir models/ --batch_size 2 --n_threads 0 --remark dummy_run
+# python CrossStyTr/CrossStyTr_train.py --save_dir models/ --batch_size 4 --n_threads 12 --max_iter 160000 --remark freeze160000

@@ -262,12 +262,17 @@ class FusionBlock(nn.Module):
         style_feats = self.style_proj(style_feats)
         content_feats = self.content_proj(content_feats)
 
-        fusion_feats = self.cross_attn(q=content_feats,kv=style_feats)
-        
+        if self.curr_layer > 8:
+            fusion_feats = self.cross_attn(q=content_feats,kv=style_feats)
+        else:
+            fusion_feats = content_feats
+
         if self.has_mlp:
             content_feats = content_feats + self.ffn(self.fusion_norm(fusion_feats))
 
+
         return style_feats,content_feats  # N x num_patches x 768
+    
 
 class CrossStyTr(nn.Module):
     def __init__(
@@ -280,6 +285,7 @@ class CrossStyTr(nn.Module):
         num_heads=12,
         img_size = 256,
         norm_layer = nn.LayerNorm,
+        encoder_layers = 12,
         device='cuda',
         depth = 12,
         has_mlp = True,
@@ -306,7 +312,11 @@ class CrossStyTr(nn.Module):
         # Load a pretrained ViT
         self.vit = ViT('B_16_imagenet1k', pretrained=True,image_size=img_size).to(self.device) # construct and load 
         self.vit.fc = None
-        freeze_model(self.vit)
+        
+        for layer in range(encoder_layers):
+            freeze_model(self.vit.transformer.blocks[layer])
+
+        #freeze_model(self.vit)
 
         self.new_ps = nn.Conv2d(style_embed , style_embed , (1,1))
         self.averagepooling = nn.AdaptiveAvgPool2d(9) # change 18 to 9
