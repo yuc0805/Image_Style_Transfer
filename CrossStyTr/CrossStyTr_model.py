@@ -258,6 +258,9 @@ class FusionBlock(nn.Module):
         style_feats = self.self_attn(self.style_norm(style_feats),mask=mask)
         content_feats = self.self_attn(self.content_norm(content_feats),mask=mask)
 
+        style_feats = self.style_proj(style_feats)
+        content_feats = self.content_proj(content_feats)
+
         fusion_feats = self.cross_attn(q=content_feats,kv=style_feats)
         
         if self.has_mlp:
@@ -441,7 +444,6 @@ class CrossStyTr(nn.Module):
 
         if self.is_train:
             return Ics,  loss_c, loss_s, loss_lambda1, loss_lambda2   #train
+        
         else: return Ics    #test 
-
-
 
