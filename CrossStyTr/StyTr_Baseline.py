@@ -174,7 +174,6 @@ class FeedForward(nn.Module):
             return self.LayerNorm(x + out)
         return out
 
-"""
 class CrossAttention(nn.Module):
     def __init__(self, dim=768, num_heads=8, 
                  qkv_bias=False, 
@@ -221,7 +220,6 @@ class CrossAttention(nn.Module):
         out = self.proj_drop(out)
 
         return out # batch_size, num_patches, 768
-"""
 
 class FusionBlock(nn.Module):
     def __init__(self, styl_embed=768,
@@ -258,14 +256,19 @@ class FusionBlock(nn.Module):
         style_feats = self.self_attn(self.style_norm(style_feats),mask=mask)
         content_feats = self.self_attn(self.content_norm(content_feats),mask=mask)
 
+        style_feats = self.style_proj(style_feats)
+        content_feats = self.content_proj(content_feats)
+        
         #fusion_feats = self.cross_attn(q=content_feats,kv=style_feats)
         fusion_feats = style_feats + content_feats
+        
         fusion_feats = self.fusion_norm(fusion_feats)
         
         if self.has_mlp:
-            fusion_feats = fusion_feats + self.ffn(fusion_feats)
+            #fusion_feats = fusion_feats + self.ffn(fusion_feats)
+            content_feats = content_feats + self.ffn(self.fusion_norm(fusion_feats))
 
-        return fusion_feats, content_feats  # N x num_patches x 768
+        return style_feats,content_feats 
 
 class CrossStyTr(nn.Module):
     def __init__(
@@ -402,17 +405,17 @@ class CrossStyTr(nn.Module):
         
         for blk in self.fusion: # Weakness: Have to forward 3 times 
             style_img,content_img = blk(style_feats=style_img,content_feats=content_img)
-
+            
             content_img1,content_img2 = blk(style_feats=content_img1,content_feats=content_img2) # for loss
             style_img1, style_img2 = blk(style_feats=style_img1,content_feats=style_img2) # for loss
 
         style_img = self.unpatch(style_img)
         content_img1 = self.unpatch(content_img1)
         style_img1 = self.unpatch(style_img1)
-
+        content_img = self.unpatch(content_img)
 
         #print('style_img output shape:',style_img.shape)
-        Ics = self.decoder(style_img) # result image
+        Ics = self.decoder(content_img) # result image
         #print('ICS shape: ', Ics.shape)
 
         ######Calculating loss#######################################################
@@ -443,6 +446,7 @@ class CrossStyTr(nn.Module):
 
         if self.is_train:
             return Ics,  loss_c, loss_s, loss_lambda1, loss_lambda2   #train
+        
         else: return Ics    #test 
 
 

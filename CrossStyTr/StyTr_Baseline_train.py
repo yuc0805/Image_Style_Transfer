@@ -72,7 +72,7 @@ parser.add_argument('--style_dir', default='monet2photo/testA', type=str,  #wiki
 parser.add_argument('--vgg', type=str, default='./experiments/vgg_normalised.pth')  #run the train.py, please download the pretrained vgg checkpoint
 
 # training options
-parser.add_argument('--save_dir', default='./experiments',
+parser.add_argument('--save_dir', default='./baseline_experiments',
                     help='Directory to save the model')
 parser.add_argument('--log_dir', default='./logs',
                     help='Directory to save the log')
@@ -158,7 +158,7 @@ for i in tqdm(range(args.max_iter)):
     #print('content images',content_images)
     out, loss_c, loss_s,l_identity1, l_identity2 = network(content_images, style_images)
 
-    if i % 100 == 0:
+    if i % 10 == 0:
         output_name = '{:s}/test/{:s}{:s}'.format(
                         save_dir, str(i),".jpg"
                     )
@@ -177,6 +177,8 @@ for i in tqdm(range(args.max_iter)):
        
     optimizer.zero_grad()
     loss.sum().backward()
+    
+    
     optimizer.step()
 
     # writer.add_scalar('loss_content', loss_c.sum().item(), i + 1)
