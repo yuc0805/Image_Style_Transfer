@@ -264,9 +264,9 @@ class FusionBlock(nn.Module):
         fusion_feats = self.cross_attn(q=content_feats,kv=style_feats)
         
         if self.has_mlp:
-            fusion_feats = fusion_feats + self.ffn(self.fusion_norm(fusion_feats))
+            content_feats = content_feats + self.ffn(self.fusion_norm(fusion_feats))
 
-        return fusion_feats,content_feats  # N x num_patches x 768
+        return style_feats,content_feats  # N x num_patches x 768
 
 class CrossStyTr(nn.Module):
     def __init__(
@@ -403,7 +403,7 @@ class CrossStyTr(nn.Module):
         
         for blk in self.fusion: # Weakness: Have to forward 3 times 
             style_img,content_img = blk(style_feats=style_img,content_feats=content_img)
-
+            
             content_img1,content_img2 = blk(style_feats=content_img1,content_feats=content_img2) # for loss
             style_img1, style_img2 = blk(style_feats=style_img1,content_feats=style_img2) # for loss
 
@@ -413,7 +413,7 @@ class CrossStyTr(nn.Module):
 
 
         #print('style_img output shape:',style_img.shape)
-        Ics = self.decoder(style_img) # result image
+        Ics = self.decoder(content_img) # result image
         #print('ICS shape: ', Ics.shape)
 
         ######Calculating loss#######################################################
