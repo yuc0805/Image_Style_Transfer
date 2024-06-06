@@ -198,4 +198,4 @@ for i in tqdm(range(args.max_iter)):
 #writer.close()
 
 #python CrossStyTr/CrossStyTr_train.py --save_dir models/ --batch_size 2 --n_threads 0 --remark dummy_run
-# python CrossStyTr/CrossStyTr_train.py --save_dir models/ --batch_size 4 --n_threads 12 --max_iter 160000 --remark freeze160000
+# python CrossStyTr/CrossStyTr_train.py --save_dir models/ --batch_size 4 --n_threads 12 --max_iter 160000 --remark freeze160000 --style_dir monet2photo/trainA --content_dir monet2photo/trainB_trimed

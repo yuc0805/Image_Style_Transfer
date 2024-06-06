@@ -204,7 +204,7 @@ class CrossAttention(nn.Module):
         values = self.wv(kv) ## (N, seq_len, embed_size)
         keys = self.wk(kv) ## (N, seq_len, embed_size)
         queries = self.wq(q) ## (N, seq_len, embed_size)
-        queries1 = queries.clone()
+        #queries1 = queries.clone()
 
         values = values.view(N, seq_len, self.num_heads, self.head_dim).transpose(1,2) ## (N, heads, seq_len, head_dim)
         keys = keys.view(N, seq_len, self.num_heads, self.head_dim).transpose(1,2) ## (N, heads, seq_len, head_dim)
@@ -219,7 +219,7 @@ class CrossAttention(nn.Module):
         out = out.transpose(1, 2).contiguous().view(N, seq_len, self.embed_size) ## (N, seq_len, embed_size)
 
         out = self.proj(out)
-        out = self.proj_drop(out) + queries1
+        out = self.proj_drop(out) 
 
         return out # batch_size, num_patches, 768
 
@@ -252,6 +252,8 @@ class FusionBlock(nn.Module):
     
         if self.has_mlp:
             self.ffn = FeedForward(emb_size=hidden_size,hidden_size=hidden_size*4)
+        
+        self.curr_layer = curr_layer
 
 
     def forward(self,style_feats,content_feats,mask=None):
@@ -266,6 +268,7 @@ class FusionBlock(nn.Module):
             fusion_feats = self.cross_attn(q=content_feats,kv=style_feats)
         else:
             fusion_feats = content_feats
+
 
         if self.has_mlp:
             content_feats = content_feats + self.ffn(self.fusion_norm(fusion_feats))
@@ -391,7 +394,6 @@ class CrossStyTr(nn.Module):
         content_img = self.vit.patch_embedding(content_img)
         style_img = self.vit.patch_embedding(style_img)
         
-        # position embedding
         content_pool = self.averagepooling(content_img)
         #print('conten_pool shape: ',content_pool.shape)       
         pos_c = self.new_ps(content_pool)
