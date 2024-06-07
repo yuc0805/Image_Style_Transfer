@@ -215,4 +215,4 @@ for i in tqdm(range(args.max_iter)):
                                                     
 #writer.close()
 
-#python train.py --style_dir monet2photo/testA/ --content_dir monet2photo/testB/ --save_dir models/ --batch_size 2 --n_threads 0
+# python train.py --style_dir monet2photo/testA/ --content_dir monet2photo/testB/ --save_dir models/ --batch_size 2 --n_threads 0
