@@ -2,3 +2,5 @@ monet2photo/
 out_4800/
 experiments/
 our_result/
+freeze_enc_exp/
+freeze_enc_result/

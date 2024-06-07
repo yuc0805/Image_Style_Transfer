@@ -27,7 +27,7 @@ kubectl cp Image_Style_Transfer/experiments physio-model-l-58f79fd5f6-8h57s:Imag
 # download file
 kubectl cp test-pod:IDH-task/data/exp_res/pre_real_base_multi_0.png data/exp_res/pre_real_base_multi_0.png -c gpu-container
 kubectl cp physio-model-l-f55f79c47-q556k:data/wesad/samples data/samples -c physio-model-l
-kubectl cp physio-model-l-58f79fd5f6-8h57s:/Image_Style_Transfer/models/c10s7/test our_result -c physio-model-l
+kubectl cp physio-model-l-58f79fd5f6-8h57s:/Image_Style_Transfer/models/transformer_iter_10000.pth transformer_iter_10000.pth -c physio-model-l
 
 kubectl cp physio-model-l-f55f79c47-d2khh:/data/results/model_checkpoint_cross_vit100ce_99.pth  results/model_checkpoint_cross_vit100ce_99.pth -c physio-model-l
 kubectl cp physio-model-l-f55f79c47-h62rh:HGB/data/pretrain/cross_vit/cf cf  -c physio-model-l

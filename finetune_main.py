@@ -89,13 +89,17 @@ parser.add_argument('--position_embedding', default='sine', type=str, choices=('
                         help="Type of positional embedding to use on top of the image features")
 parser.add_argument('--hidden_dim', default=512, type=int,
                         help="Size of the embeddings (dimension of the transformer)")
+parser.add_argument('--remark',default='freeze_enc_150000',type=str,
+                    help="model remark")
 args = parser.parse_args()
 
 USE_CUDA = torch.cuda.is_available()
 device = torch.device("cuda:0" if USE_CUDA else "cpu")
 
-if not os.path.exists(args.save_dir):
-    os.makedirs(args.save_dir)
+save_dir = os.path.join(args.save_dir,args.remark)
+
+if not os.path.exists(save_dir):
+    os.makedirs(save_dir)
 
 # if not os.path.exists(args.log_dir):
 #     os.mkdir(args.log_dir)
@@ -168,8 +172,8 @@ optimizer = torch.optim.Adam([
                               ], lr=args.lr)
 
 
-if not os.path.exists(args.save_dir+"/test"):
-    os.makedirs(args.save_dir+"/test")
+if not os.path.exists(save_dir+"/test"):
+    os.makedirs(save_dir+"/test")
 
 
 
@@ -187,7 +191,7 @@ for i in tqdm(range(args.max_iter)):
 
     if i % 100 == 0:
         output_name = '{:s}/test/{:s}{:s}'.format(
-                        args.save_dir, str(i),".jpg"
+                        save_dir, str(i),".jpg"
                     )
         out = torch.cat((content_images,out),0)
         out = torch.cat((style_images,out),0)
@@ -224,7 +228,7 @@ for i in tqdm(range(args.max_iter)):
         for key in state_dict.keys():
             state_dict[key] = state_dict[key].to(torch.device('cpu'))
         torch.save(state_dict,
-                   '{:s}/transformer_iter_{:d}.pth'.format(args.save_dir,
+                   '{:s}/transformer_iter_{:d}.pth'.format(save_dir,
                                                            i + 1))
 
         #state_dict = network.module.decode.state_dict()
@@ -232,14 +236,14 @@ for i in tqdm(range(args.max_iter)):
         for key in state_dict.keys():
             state_dict[key] = state_dict[key].to(torch.device('cpu'))
         torch.save(state_dict,
-                   '{:s}/decoder_iter_{:d}.pth'.format(args.save_dir,
+                   '{:s}/decoder_iter_{:d}.pth'.format(save_dir,
                                                            i + 1))
         #state_dict = network.module.embedding.state_dict()
         state_dict = network.embedding.state_dict()
         for key in state_dict.keys():
             state_dict[key] = state_dict[key].to(torch.device('cpu'))
         torch.save(state_dict,
-                   '{:s}/embedding_iter_{:d}.pth'.format(args.save_dir,
+                   '{:s}/embedding_iter_{:d}.pth'.format(save_dir,
                                                            i + 1))
 
                                                     
@@ -247,4 +251,4 @@ for i in tqdm(range(args.max_iter)):
 
 # python train.py --style_dir monet2photo/testA/ --content_dir monet2photo/testB/ --save_dir models/ --batch_size 2 --n_threads 0
 
-#python finetune_main.py --style_dir monet2photo/trainA/  --content_dir monet2photo/trainA/  --save_dir models/ --batch_size 2 --n_threads 0 --Trans_path experiments/transformer_iter_160000.pth --freeze_part encoder --vgg experiments/vgg_normalised.pth
+# python finetune_main.py --style_dir monet2photo/trainA/  --content_dir monet2photo/trainB_trimed/  --save_dir models/ --batch_size 2 --n_threads 0 --Trans_path experiments/transformer_iter_160000.pth --freeze_part decoder --remark freeze_decoder --vgg experiments/vgg_normalised.pth
