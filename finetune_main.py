@@ -1,23 +1,19 @@
 import argparse
-from pathlib import Path
 import os
 import torch
 import torch.nn as nn
+import torch.utils.data as data
 from PIL import Image
-from os.path import basename
-from os.path import splitext
+from PIL import ImageFile
+#from tensorboardX import SummaryWriter
 from torchvision import transforms
-from torchvision.utils import save_image
-from CrossStyTr.function import calc_mean_std, normal, coral
-import models.transformer as transformer
-import models.StyTR as StyTR
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from CrossStyTr.function import normal
-import numpy as np
-import time
-import random
 from tqdm import tqdm
+from pathlib import Path
+import models.transformer as transformer
+import models.StyTR  as StyTR 
+from sampler import InfiniteSamplerWrapper
+from torchvision.utils import save_image
+
 
 def train_transform():
     transform_list = [
@@ -28,77 +24,93 @@ def train_transform():
     return transforms.Compose(transform_list)
 
 
+class FlatFolderDataset(data.Dataset):
+    def __init__(self, root, transform):
+        super(FlatFolderDataset, self).__init__()
+        self.root = root
+        print(self.root)
+        self.path = os.listdir(self.root)
+        if os.path.isdir(os.path.join(self.root,self.path[0])):
+            self.paths = []
+            for file_name in os.listdir(self.root):
+                for file_name1 in os.listdir(os.path.join(self.root,file_name)):
+                    self.paths.append(self.root+"/"+file_name+"/"+file_name1)             
+        else:
+            self.paths = list(Path(self.root).glob('*'))
+        self.transform = transform
+    def __getitem__(self, index):
+        path = self.paths[index]
+        img = Image.open(str(path)).convert('RGB')
+        img = self.transform(img)
+        return img
+    def __len__(self):
+        return len(self.paths)
+    def name(self):
+        return 'FlatFolderDataset'
+
+def adjust_learning_rate(optimizer, iteration_count):
+    """Imitating the original implementation"""
+    lr = 2e-4 / (1.0 + args.lr_decay * (iteration_count - 1e4))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
+def warmup_learning_rate(optimizer, iteration_count):
+    """Imitating the original implementation"""
+    lr = args.lr * 0.1 * (1.0 + 3e-4 * iteration_count)
+    # print(lr)
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
+
 parser = argparse.ArgumentParser()
 # Basic options
-parser.add_argument('--content', type=str,
-                    help='File path to the content image')
-parser.add_argument('--content_dir', type=str,
-                    help='Directory path to a batch of content images')
-parser.add_argument('--style', type=str,
-                    help='File path to the style image, or multiple style \
-                    images separated by commas if you want to do style \
-                    interpolation or spatial control')
-parser.add_argument('--style_dir', type=str,
-                    help='Directory path to a batch of style images')
-parser.add_argument('--output', type=str, default='output',
-                    help='Directory to save the output image(s)')
-parser.add_argument('--vgg', type=str, default='./experiments/vgg_normalised.pth')
-parser.add_argument('--decoder_path', type=str, default='experiments/decoder_iter_160000.pth')
 parser.add_argument('--Trans_path', type=str, default='experiments/transformer_iter_160000.pth')
-parser.add_argument('--embedding_path', type=str, default='experiments/embedding_iter_160000.pth')
+parser.add_argument('--freeze_part', type=str, default='decoder')
+parser.add_argument('--content_dir', default='./datasets/train2014', type=str,   
+                    help='Directory path to a batch of content images')
+parser.add_argument('--style_dir', default='./datasets/Images', type=str,  #wikiart dataset crawled from https://www.wikiart.org/
+                    help='Directory path to a batch of style images')
+parser.add_argument('--vgg', type=str, default='./experiments/vgg_normalised.pth')  #run the train.py, please download the pretrained vgg checkpoint
 
-
-parser.add_argument('--style_interpolation_weights', type=str, default="")
-parser.add_argument('--a', type=float, default=1.0)
+# training options
+parser.add_argument('--save_dir', default='./experiments',
+                    help='Directory to save the model')
+parser.add_argument('--log_dir', default='./logs',
+                    help='Directory to save the log')
+parser.add_argument('--lr', type=float, default=5e-4)
+parser.add_argument('--lr_decay', type=float, default=1e-5)
+parser.add_argument('--max_iter', type=int, default=160000)
+parser.add_argument('--batch_size', type=int, default=8)
+parser.add_argument('--style_weight', type=float, default=10.0)
+parser.add_argument('--content_weight', type=float, default=7.0)
+parser.add_argument('--n_threads', type=int, default=16)
+parser.add_argument('--save_model_interval', type=int, default=10000)
 parser.add_argument('--position_embedding', default='sine', type=str, choices=('sine', 'learned'),
                         help="Type of positional embedding to use on top of the image features")
 parser.add_argument('--hidden_dim', default=512, type=int,
                         help="Size of the embeddings (dimension of the transformer)")
-parser.add_argument('--device', type=str, default='cuda')
 args = parser.parse_args()
 
+USE_CUDA = torch.cuda.is_available()
+device = torch.device("cuda:0" if USE_CUDA else "cpu")
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if not os.path.exists(args.save_dir):
+    os.makedirs(args.save_dir)
 
-# Either --content or --content_dir should be given.
-if args.content:
-    content_paths = [Path(args.content)]
-else:
-    content_dir = Path(args.content_dir)
-    content_paths = [f for f in content_dir.glob('*')]
-
-# Either --style or --style_dir should be given.
-if args.style:
-    style_paths = [Path(args.style)]    
-else:
-    style_dir = Path(args.style_dir)
-    style_paths = [f for f in style_dir.glob('*')]
-    
-
-output_path=args.output
-if not os.path.exists(output_path):
-    os.mkdir(output_path)
-
+# if not os.path.exists(args.log_dir):
+#     os.mkdir(args.log_dir)
+# writer = SummaryWriter(log_dir=args.log_dir)
 
 vgg = StyTR.vgg
 vgg.load_state_dict(torch.load(args.vgg))
 vgg = nn.Sequential(*list(vgg.children())[:44])
 
 decoder = StyTR.decoder
-Trans = transformer.Transformer()
 embedding = StyTR.PatchEmbed()
 
-decoder.eval()
-Trans.eval()
-vgg.eval()
+Trans = transformer.Transformer()
+
 from collections import OrderedDict
-new_state_dict = OrderedDict()
-state_dict = torch.load(args.decoder_path)
-for k, v in state_dict.items():
-    #namekey = k[7:] # remove `module.`
-    namekey = k
-    new_state_dict[namekey] = v
-decoder.load_state_dict(new_state_dict)
 
 new_state_dict = OrderedDict()
 state_dict = torch.load(args.Trans_path)
@@ -108,59 +120,129 @@ for k, v in state_dict.items():
     new_state_dict[namekey] = v
 Trans.load_state_dict(new_state_dict)
 
-new_state_dict = OrderedDict()
-state_dict = torch.load(args.embedding_path)
-for k, v in state_dict.items():
-    #namekey = k[7:] # remove `module.`
-    namekey = k
-    new_state_dict[namekey] = v
-embedding.load_state_dict(new_state_dict)
 
-network = StyTR.StyTrans(vgg,decoder,embedding,Trans,args)
-network.eval()
+for name, param in Trans.named_parameters():
+    if name.startswith('encoder'):
+        param.requires_grad = True
+
+
+for name, param in Trans.named_parameters():
+    if name.startswith(args.freeze_part):
+        param.requires_grad = False
+
+
+with torch.no_grad():
+    network = StyTR.StyTrans(vgg,decoder,embedding, Trans,args)
+network.train()
+
 network.to(device)
+#network = nn.DataParallel(network, device_ids=[0,1])
+content_tf = train_transform()
+style_tf = train_transform()
 
 
 
-content_tf = test_transform(content_size, crop)
-style_tf = test_transform(style_size, crop)
+content_dataset = FlatFolderDataset(args.content_dir, content_tf)
+style_dataset = FlatFolderDataset(args.style_dir, style_tf)
 
-
-for content_path in tqdm(content_paths):
-    # sample 5 style
-    sampled_stytle = random.sample(style_paths, 5)
-    for style_path in sampled_stytle:
-        start_time = time.time()
-        print(content_path)
-       
-
-        content_tf1 = content_transform()       
-        content = content_tf(Image.open(content_path).convert("RGB"))
-
-        h,w,c=np.shape(content)    
-        style_tf1 = style_transform(h,w)
-        style = style_tf(Image.open(style_path).convert("RGB"))
-
-      
-        style = style.to(device).unsqueeze(0)
-        content = content.to(device).unsqueeze(0)
-        
-        with torch.no_grad():
-            output= network(content,style)       
-        output = output.cpu()
-        end_time = time.time() 
-
-        print('process time: ',end_time-start_time)
-        output_name = '{:s}/{:s}_stylized_{:s}{:s}'.format(
-            output_path, splitext(basename(content_path))[0],
-            splitext(basename(style_path))[0], save_ext
-        )
+content_iter = iter(data.DataLoader(
+    content_dataset, batch_size=args.batch_size,
+    sampler=InfiniteSamplerWrapper(content_dataset),
+    num_workers=args.n_threads))
+style_iter = iter(data.DataLoader(
+    style_dataset, batch_size=args.batch_size,
+    sampler=InfiniteSamplerWrapper(style_dataset),
+    num_workers=args.n_threads))
  
-        save_image(output, output_name)
+
+# optimizer = torch.optim.Adam([ 
+#                               {'params': network.module.transformer.parameters()},
+#                               {'params': network.module.decode.parameters()},
+#                               {'params': network.module.embedding.parameters()},        
+#                               ], lr=args.lr)
+
+optimizer = torch.optim.Adam([ 
+                              {'params': network.transformer.parameters()},
+                              {'params': network.decode.parameters()},
+                              {'params': network.embedding.parameters()},        
+                              ], lr=args.lr)
 
 
-# python test.py --content_dir /monet2photo/testB/ --style_dir /monet2photo/testA/ --output iter1600_out
+if not os.path.exists(args.save_dir+"/test"):
+    os.makedirs(args.save_dir+"/test")
 
-# python test.py  --content_dir /Users/leo/Desktop/Manga/onepiece/grayscale --style /Users/leo/Desktop/Manga/onepiece/colored/5.png --output onepieces_out_5
-   
 
+
+for i in tqdm(range(args.max_iter)):
+
+    if i < 1e4:
+        warmup_learning_rate(optimizer, iteration_count=i)
+    else:
+        adjust_learning_rate(optimizer, iteration_count=i)
+
+    # print('learning_rate: %s' % str(optimizer.param_groups[0]['lr']))
+    content_images = next(content_iter).to(device)
+    style_images = next(style_iter).to(device)  
+    out, loss_c, loss_s,l_identity1, l_identity2 = network(content_images, style_images)
+
+    if i % 100 == 0:
+        output_name = '{:s}/test/{:s}{:s}'.format(
+                        args.save_dir, str(i),".jpg"
+                    )
+        out = torch.cat((content_images,out),0)
+        out = torch.cat((style_images,out),0)
+        save_image(out, output_name)
+
+        
+    loss_c = args.content_weight * loss_c
+    loss_s = args.style_weight * loss_s
+    loss = loss_c + loss_s + (l_identity1 * 70) + (l_identity2 * 1) 
+  
+    print(loss.sum().cpu().detach().numpy(),"-content:",loss_c.sum().cpu().detach().numpy(),"-style:",loss_s.sum().cpu().detach().numpy()
+              ,"-l1:",l_identity1.sum().cpu().detach().numpy(),"-l2:",l_identity2.sum().cpu().detach().numpy()
+              )
+       
+    optimizer.zero_grad()
+    loss.sum().backward()
+    optimizer.step()
+    
+    print('gradient check')
+    for name, param in network.named_parameters():
+        if param.grad is not None:
+            print(f"{name} has gradient")
+        else:
+            print(f"{name} has NO gradient")
+    # writer.add_scalar('loss_content', loss_c.sum().item(), i + 1)
+    # writer.add_scalar('loss_style', loss_s.sum().item(), i + 1)
+    # writer.add_scalar('loss_identity1', l_identity1.sum().item(), i + 1)
+    # writer.add_scalar('loss_identity2', l_identity2.sum().item(), i + 1)
+    # writer.add_scalar('total_loss', loss.sum().item(), i + 1)
+
+    if (i + 1) % args.save_model_interval == 0 or (i + 1) == args.max_iter:
+        #state_dict = network.module.transformer.state_dict()
+        state_dict = network.transformer.state_dict()
+        for key in state_dict.keys():
+            state_dict[key] = state_dict[key].to(torch.device('cpu'))
+        torch.save(state_dict,
+                   '{:s}/transformer_iter_{:d}.pth'.format(args.save_dir,
+                                                           i + 1))
+
+        #state_dict = network.module.decode.state_dict()
+        state_dict = network.decode.state_dict()
+        for key in state_dict.keys():
+            state_dict[key] = state_dict[key].to(torch.device('cpu'))
+        torch.save(state_dict,
+                   '{:s}/decoder_iter_{:d}.pth'.format(args.save_dir,
+                                                           i + 1))
+        #state_dict = network.module.embedding.state_dict()
+        state_dict = network.embedding.state_dict()
+        for key in state_dict.keys():
+            state_dict[key] = state_dict[key].to(torch.device('cpu'))
+        torch.save(state_dict,
+                   '{:s}/embedding_iter_{:d}.pth'.format(args.save_dir,
+                                                           i + 1))
+
+                                                    
+#writer.close()
+
+# python train.py --style_dir monet2photo/testA/ --content_dir monet2photo/testB/ --save_dir models/ --batch_size 2 --n_threads 0
