@@ -206,12 +206,12 @@ for i in tqdm(range(args.max_iter)):
     loss.sum().backward()
     optimizer.step()
     
-    print('gradient check')
-    for name, param in network.named_parameters():
-        if param.grad is not None:
-            print(f"{name} has gradient")
-        else:
-            print(f"{name} has NO gradient")
+    # print('gradient check')
+    # for name, param in network.named_parameters():
+    #     if param.grad is not None:
+    #         print(f"{name} has gradient")
+    #     else:
+    #         print(f"{name} has NO gradient")
     # writer.add_scalar('loss_content', loss_c.sum().item(), i + 1)
     # writer.add_scalar('loss_style', loss_s.sum().item(), i + 1)
     # writer.add_scalar('loss_identity1', l_identity1.sum().item(), i + 1)
@@ -246,3 +246,5 @@ for i in tqdm(range(args.max_iter)):
 #writer.close()
 
 # python train.py --style_dir monet2photo/testA/ --content_dir monet2photo/testB/ --save_dir models/ --batch_size 2 --n_threads 0
+
+#python finetune_main.py --style_dir monet2photo/trainA/  --content_dir monet2photo/trainA/  --save_dir models/ --batch_size 2 --n_threads 0 --Trans_path experiments/transformer_iter_160000.pth --freeze_part encoder --vgg experiments/vgg_normalised.pth
